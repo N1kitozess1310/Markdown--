@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Markdown-редактор</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #334155;
+      --accent: #60a5fa;
+      --accent-2: #34d399;
+      --danger: #f87171;
+      --shadow: 0 16px 40px rgba(0,0,0,.28);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #1e293b, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 320px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar, .editor-shell, .toolbar, .card {
+      background: rgba(17,24,39,.88);
+      border: 1px solid rgba(148,163,184,.16);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius);
+    }
+
+    .sidebar {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.3rem;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: .92rem;
+      margin-top: 4px;
+    }
+
+    .btn, button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font: inherit;
+      color: white;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      cursor: pointer;
+      transition: transform .15s ease, opacity .15s ease, background .15s ease;
+    }
+    .btn:hover, button:hover { transform: translateY(-1px); }
+    .btn.secondary {
+      background: linear-gradient(135deg, #374151, #1f2937);
+      border: 1px solid rgba(148,163,184,.18);
+    }
+    .btn.danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    .stack { display: grid; gap: 10px; }
+
+    .field, select, input[type="search"], input[type="text"] {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      outline: none;
+    }
+    .field:focus, select:focus, input:focus, textarea:focus {
+      border-color: rgba(96,165,250,.8);
+      box-shadow: 0 0 0 3px rgba(96,165,250,.15);
+    }
+
+    .notes-list {
+      display: grid;
+      gap: 10px;
+      overflow: auto;
+      padding-right: 4px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .note-item {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,.14);
+      background: rgba(15,23,42,.8);
+      cursor: pointer;
+      transition: border-color .15s ease, transform .15s ease, background .15s ease;
+    }
+    .note-item:hover { transform: translateY(-1px); }
+    .note-item.active { border-color: rgba(96,165,250,.8); background: rgba(30,41,59,.9); }
+    .note-title {
+      font-weight: 600;
+      margin: 0 0 5px 0;
+      font-size: .98rem;
+    }
+    .note-meta {
+      color: var(--muted);
+      font-size: .82rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .main {
+      display: grid;
+      gap: 20px;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+    }
+
+    .toolbar {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr auto auto auto;
+      align-items: center;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .editor-shell {
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1fr 1fr;
+      min-height: 0;
+    }
+
+    .panel {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 520px;
+      resize: none;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      font: inherit;
+      line-height: 1.6;
+      outline: none;
+    }
+
+    .preview {
+      min-height: 520px;
+      overflow: auto;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+    }
+
+    .preview h1, .preview h2, .preview h3, .preview h4 { margin-top: 1.1em; }
+    .preview p, .preview ul, .preview ol, .preview blockquote, .preview pre { margin: 0 0 1em; }
+    .preview code {
+      background: rgba(148,163,184,.16);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+    .preview pre {
+      padding: 14px;
+      border-radius: 12px;
+      overflow: auto;
+      background: #020617;
+      border: 1px solid rgba(148,163,184,.15);
+    }
+    .preview blockquote {
+      border-left: 4px solid var(--accent);
+      padding-left: 12px;
+      color: #cbd5e1;
+    }
+    .preview a { color: #93c5fd; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { order: 2; }
+      .main { order: 1; }
+      .editor-shell { grid-template-columns: 1fr; }
+      textarea, .preview { min-height: 360px; }
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .toolbar .status { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 12px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .title { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="title">
+        <div>
+          <h1>Markdown-редактор</h1>
+          <div class="subtitle">Заметки, автосохранение, фильтр и сортировка</div>
+        </div>
+      </div>
+
+      <button id="newNoteBtn" class="btn">+ Новая заметка</button>
+
+      <div class="stack">
+        <input id="searchInput" type="search" placeholder="Поиск по заголовку и тексту..." />
+        <select id="sortSelect">
+          <option value="updatedDesc">Сначала новые</option>
+          <option value="updatedAsc">Сначала старые</option>
+          <option value="titleAsc">По названию А-Я</option>
+          <option value="titleDesc">По названию Я-А</option>
+        </select>
+      </div>
+
+      <div class="notes-list" id="notesList"></div>
+    </aside>
+
+    <section class="main">
+      <div class="toolbar">
+        <input id="titleInput" type="text" placeholder="Название заметки" />
+        <button id="saveBtn" class="btn secondary">Сохранить</button>
+        <button id="duplicateBtn" class="btn secondary">Дублировать</button>
+        <button id="deleteBtn" class="btn danger">Удалить</button>
+        <div class="status" id="status">Готово</div>
+      </div>
+
+      <div class="editor-shell">
+        <div class="panel">
+          <h2>Markdown</h2>
+          <textarea id="markdownInput" placeholder="# Начните писать Markdown...\n\n- Список\n- Подзаголовки\n- **Жирный текст**"></textarea>
+        </div>
+        <div class="panel">
+          <h2>Предпросмотр</h2>
+          <div id="preview" class="preview"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'markdown-editor-notes-v1';
+    const ACTIVE_KEY = 'markdown-editor-active-id-v1';
+
+    const notesList = document.getElementById('notesList');
+    const searchInput = document.getElementById('searchInput');
+    const sortSelect = document.getElementById('sortSelect');
+    const titleInput = document.getElementById('titleInput');
+    const markdownInput = document.getElementById('markdownInput');
+    const preview = document.getElementById('preview');
+    const statusEl = document.getElementById('status');
+
+    const newNoteBtn = document.getElementById('newNoteBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const duplicateBtn = document.getElementById('duplicateBtn');
+
+    let notes = loadNotes();
+    let activeId = localStorage.getItem(ACTIVE_KEY) || '';
+    let autosaveTimer = null;
+    let dirty = false;
+
+    if (!notes.length) {
+      notes = [createNote('Добро пожаловать', '# Добро пожаловать\n\nЭто простой Markdown-редактор.\n\n- Данные сохраняются в localStorage\n- Работает поиск и сортировка\n- Есть автосохранение')];
+      activeId = notes[0].id;
+      persistNotes();
+      persistActiveId();
+    }
+
+    if (!notes.some(n => n.id === activeId)) {
+      activeId = notes[0].id;
+    }
+
+    function createId() {
+      return 'note_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    }
+
+    function createNote(title = 'Новая заметка', content = '') {
+      const now = new Date().toISOString();
+      return {
+        id: createId(),
+        title,
+        content,
+        createdAt: now,
+        updatedAt: now
+      };
+    }
+
+    function loadNotes() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        console.error('Ошибка загрузки', e);
+        return [];
+      }
+    }
+
+    function persistNotes() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    }
+
+    function persistActiveId() {
+      localStorage.setItem(ACTIVE_KEY, activeId);
+    }
+
+    function getActiveNote() {
+      return notes.find(n => n.id === activeId) || notes[0];
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function renderNotes() {
+      const query = searchInput.value.trim().toLowerCase();
+      const sortValue = sortSelect.value;
+
+      const filtered = notes.filter(note => {
+        const haystack = `${note.title} ${note.content}`.toLowerCase();
+        return haystack.includes(query);
+      });
+
+      filtered.sort((a, b) => {
+        if (sortValue === 'updatedAsc') return new Date(a.updatedAt) - new Date(b.updatedAt);
+        if (sortValue === 'updatedDesc') return new Date(b.updatedAt) - new Date(a.updatedAt);
+        if (sortValue === 'titleAsc') return a.title.localeCompare(b.title, 'ru');
+        if (sortValue === 'titleDesc') return b.title.localeCompare(a.title, 'ru');
+        return 0;
+      });
+
+      notesList.innerHTML = '';
+
+      if (!filtered.length) {
+        notesList.innerHTML = '<div class="status">Ничего не найдено</div>';
+        return;
+      }
+
+      filtered.forEach(note => {
+        const item = document.createElement('div');
+        item.className = 'note-item' + (note.id === activeId ? ' active' : '');
+        item.innerHTML = `
+          <div class="note-title">${escapeHtml(note.title || 'Без названия')}</div>
+          <div class="note-meta">
+            <span>${formatDate(note.updatedAt)}</span>
+          </div>
+        `;
+        item.addEventListener('click', () => selectNote(note.id));
+        notesList.appendChild(item);
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function renderEditor() {
+      const note = getActiveNote();
+      if (!note) return;
+
+      titleInput.value = note.title;
+      markdownInput.value = note.content;
+      preview.innerHTML = marked.parse(note.content || '');
+      renderNotes();
+      setStatus(dirty ? 'Есть несохранённые изменения' : 'Сохранено');
+    }
+
+    function selectNote(id) {
+      activeId = id;
+      persistActiveId();
+      dirty = false;
+      renderEditor();
+    }
+
+    function updateCurrentNote() {
+      const note = getActiveNote();
+      if (!note) return;
+
+      note.title = titleInput.value.trim() || 'Без названия';
+      note.content = markdownInput.value;
+      note.updatedAt = new Date().toISOString();
+      persistNotes();
+      persistActiveId();
+      dirty = false;
+      renderNotes();
+      setStatus('Сохранено ' + new Date().toLocaleTimeString('ru-RU'));
+    }
+
+    function scheduleAutosave() {
+      dirty = true;
+      setStatus('Автосохранение...');
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(() => {
+        updateCurrentNote();
+        preview.innerHTML = marked.parse(markdownInput.value || '');
+      }, 700);
+    }
+
+    function newNote() {
+      const note = createNote();
+      notes.unshift(note);
+      activeId = note.id;
+      persistNotes();
+      persistActiveId();
+      dirty = false;
+      renderEditor();
+      setStatus('Создана новая заметка');
+    }
+
+    function duplicateNote() {
+      const note = getActiveNote();
+      if (!note) return;
+      const copy = createNote(`${note.title} (копия)`, note.content);
+      copy.updatedAt = new Date().toISOString();
+      notes.unshift(copy);
+      activeId = copy.id;
+      persistNotes();
+      persistActiveId();
+      dirty = false;
+      renderEditor();
+      setStatus('Заметка дублирована');
+    }
+
+    function deleteNote() {
+      const note = getActiveNote();
+      if (!note) return;
+      if (!confirm(`Удалить заметку «${note.title}»?`)) return;
+
+      notes = notes.filter(n => n.id !== note.id);
+      if (!notes.length) {
+        const fallback = createNote('Новая заметка', '');
+        notes = [fallback];
+      }
+      activeId = notes[0].id;
+      persistNotes();
+      persistActiveId();
+      dirty = false;
+      renderEditor();
+      setStatus('Заметка удалена');
+    }
+
+    titleInput.addEventListener('input', () => {
+      scheduleAutosave();
+      renderNotes();
+    });
+
+    markdownInput.addEventListener('input', () => {
+      preview.innerHTML = marked.parse(markdownInput.value || '');
+      scheduleAutosave();
+    });
+
+    searchInput.addEventListener('input', renderNotes);
+    sortSelect.addEventListener('change', renderNotes);
+    saveBtn.addEventListener('click', updateCurrentNote);
+    newNoteBtn.addEventListener('click', newNote);
+    duplicateBtn.addEventListener('click', duplicateNote);
+    deleteBtn.addEventListener('click', deleteNote);
+
+    window.addEventListener('beforeunload', () => {
+      if (dirty) updateCurrentNote();
+    });
+
+    // Первичный рендер
+    renderEditor();
+  </script>
+</body>
+</html>
